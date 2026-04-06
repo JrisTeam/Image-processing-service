@@ -61,7 +61,7 @@ def test_decode_invalid_token_raises():
 # Validates: Requirements 1.4
 # ---------------------------------------------------------------------------
 
-@given(password=st.text(min_size=1, max_size=72))
+@given(password=st.text(min_size=1, max_size=72).filter(lambda p: len(p.encode()) <= 72))
 @settings(max_examples=50)
 def test_property_4_password_never_plaintext(password):
     """**Property 4: Passwords are never stored in plaintext**

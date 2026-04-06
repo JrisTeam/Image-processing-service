@@ -1,0 +1,15 @@
+- kind: 2
+  language: dothttp-vscode
+  value: |-
+    # Test your FastAPI endpoints
+
+    GET http://127.0.0.1:8000/
+  outputs: []
+- kind: 2
+  language: dothttp-vscode
+  value: |-
+
+    ###
+
+    GET http://127.0.0.1:8000/hello/User
+  outputs: []

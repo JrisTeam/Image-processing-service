@@ -1,9 +1,178 @@
-# Test your FastAPI endpoints
+# ============================================================
+# Image Processing Service — Manual HTTP Tests
+# Run with the REST Client extension (VS Code) or JetBrains HTTP Client
+# Base URL: http://127.0.0.1:8000
+# ============================================================
 
-GET http://127.0.0.1:8000/
+# ── Variables ────────────────────────────────────────────────
+# After running /register or /login, copy the access_token value
+# into @token below so the authenticated requests work.
+
+@base = http://127.0.0.1:8000
+@token = PASTE_ACCESS_TOKEN_HERE
+@image_id = PASTE_IMAGE_ID_HERE
+
+
+# ============================================================
+# AUTH
+# ============================================================
+
+### Register a new user
+POST {{base}}/register
+Content-Type: application/json
+
+{
+  "username": "alice",
+  "password": "secret123"
+}
 
 ###
 
-GET http://127.0.0.1:8000/hello/User
+### Login
+POST {{base}}/login
+Content-Type: application/json
+
+{
+  "username": "alice",
+  "password": "secret123"
+}
 
 ###
+
+### Register duplicate → expect 409
+POST {{base}}/register
+Content-Type: application/json
+
+{
+  "username": "alice",
+  "password": "anotherpass"
+}
+
+###
+
+### Login with wrong password → expect 401
+POST {{base}}/login
+Content-Type: application/json
+
+{
+  "username": "alice",
+  "password": "wrongpassword"
+}
+
+###
+
+### Register with empty username → expect 422
+POST {{base}}/register
+Content-Type: application/json
+
+{
+  "username": "",
+  "password": "secret123"
+}
+
+###
+
+
+# ============================================================
+# IMAGES — Upload
+# ============================================================
+
+### Upload a PNG image (replace file path as needed)
+# Requires: @token set above
+POST {{base}}/images/
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=----Boundary
+
+------Boundary
+Content-Disposition: form-data; name="file"; filename="test.png"
+Content-Type: image/png
+
+< ./test.png
+------Boundary--
+
+###
+
+### Upload unsupported format → expect 415
+POST {{base}}/images/
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=----Boundary
+
+------Boundary
+Content-Disposition: form-data; name="file"; filename="test.txt"
+Content-Type: text/plain
+
+Hello, this is not an image.
+------Boundary--
+
+###
+
+### Upload without auth → expect 401
+POST {{base}}/images/
+Content-Type: multipart/form-data; boundary=----Boundary
+
+------Boundary
+Content-Disposition: form-data; name="file"; filename="test.png"
+Content-Type: image/png
+
+< ./test.png
+------Boundary--
+
+###
+
+
+# ============================================================
+# IMAGES — Retrieve single image
+# ============================================================
+
+### Get image by ID (set @image_id above)
+GET {{base}}/images/{{image_id}}
+Authorization: Bearer {{token}}
+
+###
+
+### Get non-existent image → expect 404
+GET {{base}}/images/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{token}}
+
+###
+
+### Get image without auth → expect 401
+GET {{base}}/images/{{image_id}}
+
+###
+
+
+# ============================================================
+# IMAGES — Paginated listing
+# ============================================================
+
+### List images (default page=1, limit=10)
+GET {{base}}/images/
+Authorization: Bearer {{token}}
+
+###
+
+### List images — page 2, limit 5
+GET {{base}}/images/?page=2&limit=5
+Authorization: Bearer {{token}}
+
+###
+
+### List images — limit capped at 100 (send 999)
+GET {{base}}/images/?limit=999
+Authorization: Bearer {{token}}
+
+###
+
+### List images without auth → expect 401
+GET {{base}}/images/
+
+###
+
+
+# ============================================================
+# ROOT
+# ============================================================
+
+### Health check
+GET {{base}}/

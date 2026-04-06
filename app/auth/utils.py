@@ -11,11 +11,14 @@ _EXPIRY_HOURS = 24
 
 
 def hash_password(plain: str) -> str:
-    return bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
+    # bcrypt silently truncates at 72 bytes; enforce it explicitly to avoid surprises.
+    encoded = plain.encode()[:72]
+    return bcrypt.hashpw(encoded, bcrypt.gensalt()).decode()
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return bcrypt.checkpw(plain.encode(), hashed.encode())
+    encoded = plain.encode()[:72]
+    return bcrypt.checkpw(encoded, hashed.encode())
 
 
 def create_access_token(user_id: UUID) -> str:

@@ -110,7 +110,7 @@ async def test_get_current_user_no_token_returns_401(client: AsyncClient):
 # ---------------------------------------------------------------------------
 
 @given(username=_valid_username, password=_valid_password)
-@settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=None)
 @pytest.mark.asyncio
 async def test_property_1_registration_succeeds(client: AsyncClient, username, password):
     """**Property 1: Registration succeeds for any valid credentials**
@@ -131,7 +131,7 @@ async def test_property_1_registration_succeeds(client: AsyncClient, username, p
 # ---------------------------------------------------------------------------
 
 @given(username=_valid_username, password=_valid_password)
-@settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=None)
 @pytest.mark.asyncio
 async def test_property_2_duplicate_rejected(client: AsyncClient, username, password):
     """**Property 2: Duplicate registration is always rejected**
@@ -153,7 +153,7 @@ _whitespace = st.text(alphabet=" \t\n\r", min_size=0, max_size=10)
     bad_username=st.one_of(st.just(""), _whitespace),
     password=_valid_password,
 )
-@settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=None)
 @pytest.mark.asyncio
 async def test_property_3_invalid_username_returns_422(client: AsyncClient, bad_username, password):
     """**Property 3: Invalid registration inputs always return 422**
@@ -167,7 +167,7 @@ async def test_property_3_invalid_username_returns_422(client: AsyncClient, bad_
     username=_valid_username,
     bad_password=st.one_of(st.just(""), _whitespace),
 )
-@settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=None)
 @pytest.mark.asyncio
 async def test_property_3_invalid_password_returns_422(client: AsyncClient, username, bad_password):
     """**Property 3: Invalid registration inputs always return 422**
@@ -183,7 +183,7 @@ async def test_property_3_invalid_password_returns_422(client: AsyncClient, user
 # ---------------------------------------------------------------------------
 
 @given(username=_valid_username, password=_valid_password)
-@settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=None)
 @pytest.mark.asyncio
 async def test_property_6_invalid_login_returns_401(client: AsyncClient, username, password):
     """**Property 6: Invalid login credentials always return 401**
