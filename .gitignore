@@ -49,6 +49,10 @@ dmypy.json
 .env
 .env.local
 
+# Local database
+*.db
+*.sqlite
+
 # OS-specific
 .DS_Store
 Thumbs.db
