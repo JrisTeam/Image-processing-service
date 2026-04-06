@@ -33,6 +33,7 @@ env/
 # IDEs
 .idea/
 .vs/
+.kiro/
 
 # Testing
 .pytest_cache/
