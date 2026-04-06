@@ -4,16 +4,32 @@ from uuid import uuid4
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
+import redis as redis_lib
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFile, status
 from PIL import Image as PILImage
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user
-from app.db.models import ImageRecord, User
+from app.core.config import settings
+from app.core.rate_limiter import check_rate_limit
+from app.db.models import ImageRecord, TransformationRecord, User
 from app.db.session import get_db
-from app.schemas import ImageRecordOut, PaginatedResponse
+from app.schemas import ImageRecordOut, PaginatedResponse, TransformationRecordOut, TransformRequest
 from app.storage import client as storage
+from app.transforms.processor import apply_pipeline, pipeline_hash
+
+# Module-level Redis client (lazy-initialised)
+_redis_client = None
+
+TRANSFORM_CACHE_TTL = 3600  # 1 hour
+
+
+def _get_redis():
+    global _redis_client
+    if _redis_client is None:
+        _redis_client = redis_lib.from_url(settings.REDIS_URL, decode_responses=True)
+    return _redis_client
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
 DbSession = Annotated[AsyncSession, Depends(get_db)]
@@ -152,4 +168,145 @@ async def list_images(
         limit=effective_limit,
         total_items=total_items,
         total_pages=total_pages,
+    )
+
+
+@router.post("/{image_id}/transform", response_model=TransformationRecordOut)
+async def transform_image(
+    image_id: str,
+    body: TransformRequest,
+    response: Response,
+    user: CurrentUser,
+    db: DbSession,
+):
+    # --- Rate limiting ---
+    try:
+        redis = _get_redis()
+        allowed, retry_after = check_rate_limit(user.id, redis)
+    except Exception:
+        # If Redis is unavailable, allow the request through
+        allowed, retry_after = True, 0
+
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Rate limit exceeded",
+            headers={"Retry-After": str(retry_after)},
+        )
+
+    # --- Ownership check ---
+    image_record = await db.scalar(
+        select(ImageRecord).where(
+            ImageRecord.id == image_id,
+            ImageRecord.owner_id == str(user.id),
+        )
+    )
+    if not image_record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Image not found")
+
+    # --- Compute pipeline hash and check cache ---
+    p_hash = pipeline_hash(image_record.id, body.operations)
+
+    try:
+        redis = _get_redis()
+        cache_hit = redis.get(f"transform:{p_hash}")
+    except Exception:
+        cache_hit = None
+
+    if cache_hit:
+        # Look up existing TransformationRecord from DB
+        existing = await db.scalar(
+            select(TransformationRecord).where(
+                TransformationRecord.pipeline_hash == p_hash,
+                TransformationRecord.source_image_id == image_id,
+            )
+        )
+        if existing:
+            return TransformationRecordOut(
+                id=existing.id,
+                source_image_id=existing.source_image_id,
+                operations=existing.operations,
+                storage_url=existing.storage_url,
+                created_at=existing.created_at,
+            )
+
+    # --- Cache miss: fetch source image from R2 ---
+    try:
+        s3 = storage._get_s3()
+        obj = s3.get_object(Bucket=settings.R2_BUCKET_NAME, Key=image_record.storage_key)
+        image_bytes = obj["Body"].read()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch source image",
+        ) from exc
+
+    # --- Apply pipeline ---
+    try:
+        pil_image = PILImage.open(io.BytesIO(image_bytes))
+        result_image = apply_pipeline(pil_image, body.operations)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
+
+    # --- Determine output format ---
+    from app.schemas import FormatOp as _FormatOp
+    format_ops = [op for op in body.operations if isinstance(op, _FormatOp)]
+    if format_ops:
+        out_format = format_ops[-1].target
+    else:
+        out_format = (result_image.format or pil_image.format or image_record.format or "PNG").upper()
+
+    # Normalise format name for PIL
+    pil_format = out_format
+    if pil_format == "JPG":
+        pil_format = "JPEG"
+
+    # Ensure RGB for JPEG
+    if pil_format == "JPEG" and result_image.mode in ("RGBA", "P", "LA"):
+        result_image = result_image.convert("RGB")
+
+    # Save to bytes
+    quality = result_image.info.get("quality", 85)
+    out_buf = io.BytesIO()
+    save_kwargs = {"format": pil_format}
+    if pil_format in ("JPEG", "WEBP"):
+        save_kwargs["quality"] = quality
+    result_image.save(out_buf, **save_kwargs)
+    result_bytes = out_buf.getvalue()
+
+    # --- Upload to R2 ---
+    transform_key = storage.generate_transform_key(image_record.id, p_hash)
+    content_type = FORMAT_CONTENT_TYPES.get(pil_format, "application/octet-stream")
+    transform_url = storage.upload(transform_key, result_bytes, content_type)
+
+    # --- Persist TransformationRecord ---
+    ops_data = [op.model_dump(mode="json") for op in body.operations]
+    transform_record = TransformationRecord(
+        id=str(uuid4()),
+        source_image_id=image_id,
+        pipeline_hash=p_hash,
+        operations=ops_data,
+        storage_key=transform_key,
+        storage_url=transform_url,
+    )
+    db.add(transform_record)
+    await db.commit()
+    await db.refresh(transform_record)
+
+    # --- Cache the pipeline hash in Redis ---
+    try:
+        redis = _get_redis()
+        redis.set(f"transform:{p_hash}", "1", ex=TRANSFORM_CACHE_TTL)
+    except Exception:
+        pass  # Non-fatal if Redis is unavailable
+
+    return TransformationRecordOut(
+        id=transform_record.id,
+        source_image_id=transform_record.source_image_id,
+        operations=transform_record.operations,
+        storage_url=transform_record.storage_url,
+        created_at=transform_record.created_at,
     )
