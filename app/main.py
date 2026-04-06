@@ -15,6 +15,11 @@ app.include_router(auth_router)
 app.include_router(images_router, prefix="/images")
 
 
+@app.get("/")
+async def root():
+    return {"status": "ok"}
+
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     logger.error("Unhandled exception: %s\n%s", exc, traceback.format_exc())
