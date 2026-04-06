@@ -39,6 +39,7 @@ env/
 .pytest_cache/
 .coverage
 htmlcov/
+.hypothesis/
 
 # Type checking
 .mypy_cache/
