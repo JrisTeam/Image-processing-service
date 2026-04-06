@@ -35,7 +35,7 @@ def _make_jpeg(width: int = 32, height: int = 32) -> bytes:
     return buf.getvalue()
 
 
-async def _register_and_token(client: AsyncClient, username: str, password: str = "pass1234") -> str:
+async def _register_and_token(client: AsyncClient, username: str, password: str = "pass1234") -> str:  # NOSONAR — test helper, not a real credential
     resp = await client.post("/register", json={"username": username, "password": password})
     assert resp.status_code == 200, resp.text
     return resp.json()["access_token"]

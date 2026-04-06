@@ -19,6 +19,12 @@ from hypothesis import strategies as st
 from httpx import AsyncClient
 
 # ---------------------------------------------------------------------------
+# Test credentials (not real secrets — used only in isolated test DB)
+# ---------------------------------------------------------------------------
+
+_TEST_PASSWORD = "secret123"  # NOSONAR — test-only, not a real credential
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -37,7 +43,7 @@ _valid_password = st.text(min_size=6, max_size=50).filter(lambda p: p.strip() !=
 
 @pytest.mark.asyncio
 async def test_register_success(client: AsyncClient):
-    resp = await client.post("/register", json={"username": "alice", "password": "secret123"})
+    resp = await client.post("/register", json={"username": "alice", "password": _TEST_PASSWORD})
     assert resp.status_code == 200
     data = resp.json()
     assert "access_token" in data
@@ -47,7 +53,7 @@ async def test_register_success(client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_register_duplicate_returns_409(client: AsyncClient):
-    payload = {"username": "bob", "password": "pass1234"}
+    payload = {"username": "bob", "password": _TEST_PASSWORD}
     await client.post("/register", json=payload)
     resp = await client.post("/register", json=payload)
     assert resp.status_code == 409
@@ -55,28 +61,28 @@ async def test_register_duplicate_returns_409(client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_login_success(client: AsyncClient):
-    await client.post("/register", json={"username": "carol", "password": "mypassword"})
-    resp = await client.post("/login", json={"username": "carol", "password": "mypassword"})
+    await client.post("/register", json={"username": "carol", "password": _TEST_PASSWORD})
+    resp = await client.post("/login", json={"username": "carol", "password": _TEST_PASSWORD})
     assert resp.status_code == 200
     assert "access_token" in resp.json()
 
 
 @pytest.mark.asyncio
 async def test_login_wrong_password_returns_401(client: AsyncClient):
-    await client.post("/register", json={"username": "dave", "password": "correct"})
-    resp = await client.post("/login", json={"username": "dave", "password": "wrong"})
+    await client.post("/register", json={"username": "dave", "password": _TEST_PASSWORD})
+    resp = await client.post("/login", json={"username": "dave", "password": "wrong"})  # NOSONAR
     assert resp.status_code == 401
 
 
 @pytest.mark.asyncio
 async def test_login_unknown_user_returns_401(client: AsyncClient):
-    resp = await client.post("/login", json={"username": "nobody", "password": "pass"})
+    resp = await client.post("/login", json={"username": "nobody", "password": _TEST_PASSWORD})
     assert resp.status_code == 401
 
 
 @pytest.mark.asyncio
 async def test_register_empty_username_returns_422(client: AsyncClient):
-    resp = await client.post("/register", json={"username": "", "password": "pass123"})
+    resp = await client.post("/register", json={"username": "", "password": _TEST_PASSWORD})
     assert resp.status_code == 422
 
 
@@ -88,7 +94,7 @@ async def test_register_empty_password_returns_422(client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_get_current_user_valid_token(client: AsyncClient):
-    reg = await client.post("/register", json={"username": "frank", "password": "pass1234"})
+    reg = await client.post("/register", json={"username": "frank", "password": _TEST_PASSWORD})
     token = reg.json()["access_token"]
     resp = await client.get("/", headers={"Authorization": f"Bearer {token}"})
     # Root endpoint doesn't require auth, just verify the token is accepted by the app

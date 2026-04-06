@@ -53,58 +53,76 @@ _POSITION_OFFSETS = {
 def apply_pipeline(image: Image.Image, pipeline: list[Operation]) -> Image.Image:
     """Apply a sequence of operations to a PIL image and return the result."""
     img = image.copy()
-
     for op in pipeline:
-        if isinstance(op, ResizeOp):
-            img = img.resize((op.width, op.height))
+        img = _apply_op(img, op)
+    return img
 
-        elif isinstance(op, CropOp):
-            if op.x + op.width > img.width or op.y + op.height > img.height:
-                raise ValueError(
-                    f"Crop region ({op.x}, {op.y}, {op.width}x{op.height}) "
-                    f"exceeds image dimensions ({img.width}x{img.height})"
-                )
-            img = img.crop((op.x, op.y, op.x + op.width, op.y + op.height))
 
-        elif isinstance(op, RotateOp):
-            img = img.rotate(op.angle, expand=True)
+def _apply_op(img: Image.Image, op: Operation) -> Image.Image:
+    if isinstance(op, ResizeOp):
+        return _apply_resize(img, op)
+    if isinstance(op, CropOp):
+        return _apply_crop(img, op)
+    if isinstance(op, RotateOp):
+        return img.rotate(op.angle, expand=True)
+    if isinstance(op, FlipOp):
+        return ImageOps.flip(img)
+    if isinstance(op, MirrorOp):
+        return ImageOps.mirror(img)
+    if isinstance(op, CompressOp):
+        return _apply_compress(img, op)
+    if isinstance(op, FormatOp):
+        return _apply_format(img, op)
+    if isinstance(op, WatermarkOp):
+        return _apply_watermark(img, op)
+    if isinstance(op, FilterOp):
+        return _apply_filter(img, op)
+    return img
 
-        elif isinstance(op, FlipOp):
-            img = ImageOps.flip(img)
 
-        elif isinstance(op, MirrorOp):
-            img = ImageOps.mirror(img)
+def _apply_resize(img: Image.Image, op: ResizeOp) -> Image.Image:
+    return img.resize((op.width, op.height))
 
-        elif isinstance(op, CompressOp):
-            # Quality is applied at save time; store it in image.info so callers can use it.
-            img.info["quality"] = op.quality
 
-        elif isinstance(op, FormatOp):
-            target = op.target
-            # JPEG does not support alpha or palette modes — convert as needed.
-            if target == "JPEG" and img.mode in ("RGBA", "P", "LA"):
-                img = img.convert("RGB")
-            img.format = target  # type: ignore[assignment]
+def _apply_crop(img: Image.Image, op: CropOp) -> Image.Image:
+    if op.x + op.width > img.width or op.y + op.height > img.height:
+        raise ValueError(
+            f"Crop region ({op.x}, {op.y}, {op.width}x{op.height}) "
+            f"exceeds image dimensions ({img.width}x{img.height})"
+        )
+    return img.crop((op.x, op.y, op.x + op.width, op.y + op.height))
 
-        elif isinstance(op, WatermarkOp):
-            with urllib.request.urlopen(op.overlay_url) as resp:  # noqa: S310
-                overlay_data = resp.read()
-            overlay = Image.open(io.BytesIO(overlay_data)).convert("RGBA")
 
-            # Ensure base image supports alpha compositing.
-            base = img.convert("RGBA")
-            pos_fn = _POSITION_OFFSETS[op.position]
-            x, y = pos_fn(base.width, base.height, overlay.width, overlay.height)
-            base.paste(overlay, (x, y), mask=overlay)
-            img = base
+def _apply_compress(img: Image.Image, op: CompressOp) -> Image.Image:
+    # Quality is applied at save time; store it in image.info so callers can use it.
+    img.info["quality"] = op.quality
+    return img
 
-        elif isinstance(op, FilterOp):
-            if op.filter_type == "grayscale":
-                img = ImageOps.grayscale(img).convert("RGB")
-            elif op.filter_type == "sepia":
-                rgb = img.convert("RGB")
-                img = rgb.convert("RGB", _SEPIA_MATRIX)
 
+def _apply_format(img: Image.Image, op: FormatOp) -> Image.Image:
+    target = op.target
+    if target == "JPEG" and img.mode in ("RGBA", "P", "LA"):
+        img = img.convert("RGB")
+    img.format = target  # type: ignore[assignment]
+    return img
+
+
+def _apply_watermark(img: Image.Image, op: WatermarkOp) -> Image.Image:
+    with urllib.request.urlopen(op.overlay_url) as resp:  # noqa: S310
+        overlay_data = resp.read()
+    overlay = Image.open(io.BytesIO(overlay_data)).convert("RGBA")
+    base = img.convert("RGBA")
+    pos_fn = _POSITION_OFFSETS[op.position]
+    x, y = pos_fn(base.width, base.height, overlay.width, overlay.height)
+    base.paste(overlay, (x, y), mask=overlay)
+    return base
+
+
+def _apply_filter(img: Image.Image, op: FilterOp) -> Image.Image:
+    if op.filter_type == "grayscale":
+        return ImageOps.grayscale(img).convert("RGB")
+    if op.filter_type == "sepia":
+        return img.convert("RGB").convert("RGB", _SEPIA_MATRIX)
     return img
 
 

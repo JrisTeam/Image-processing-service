@@ -2,6 +2,8 @@ import io
 import math
 from uuid import uuid4
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
 from PIL import Image as PILImage
 from sqlalchemy import func, select
@@ -12,6 +14,9 @@ from app.db.models import ImageRecord, User
 from app.db.session import get_db
 from app.schemas import ImageRecordOut, PaginatedResponse
 from app.storage import client as storage
+
+CurrentUser = Annotated[User, Depends(get_current_user)]
+DbSession = Annotated[AsyncSession, Depends(get_db)]
 
 router = APIRouter(tags=["images"])
 
@@ -30,8 +35,8 @@ FORMAT_CONTENT_TYPES = {
 @router.post("/", response_model=ImageRecordOut, status_code=status.HTTP_201_CREATED)
 async def upload_image(
     file: UploadFile,
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    user: CurrentUser,
+    db: DbSession,
 ):
     data = await file.read()
 
@@ -85,8 +90,8 @@ async def upload_image(
 @router.get("/{image_id}", response_model=ImageRecordOut)
 async def get_image(
     image_id: str,
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    user: CurrentUser,
+    db: DbSession,
 ):
     record = await db.scalar(
         select(ImageRecord).where(ImageRecord.id == image_id, ImageRecord.owner_id == str(user.id))
@@ -107,10 +112,10 @@ async def get_image(
 
 @router.get("/", response_model=PaginatedResponse[ImageRecordOut])
 async def list_images(
-    page: int = Query(default=1, ge=1),
-    limit: int = Query(default=10, ge=1),
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    user: CurrentUser,
+    db: DbSession,
+    page: Annotated[int, Query(ge=1)] = 1,
+    limit: Annotated[int, Query(ge=1)] = 10,
 ):
     effective_limit = min(limit, 100)
     offset = (page - 1) * effective_limit

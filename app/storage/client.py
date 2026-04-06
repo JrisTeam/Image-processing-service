@@ -14,7 +14,7 @@ def _get_s3():
             endpoint_url=f"https://{settings.R2_ACCOUNT_ID}.r2.cloudflarestorage.com",
             aws_access_key_id=settings.R2_ACCESS_KEY_ID,
             aws_secret_access_key=settings.R2_SECRET_ACCESS_KEY,
-            region_name="auto",
+            region_name=settings.R2_REGION,
         )
     return _s3
 
