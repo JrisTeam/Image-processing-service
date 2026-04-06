@@ -13,8 +13,8 @@ _401 = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authe
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
-    db: AsyncSession = Depends(get_db),
+        credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
+        db: AsyncSession = Depends(get_db),
 ) -> User:
     if not credentials:
         raise _401

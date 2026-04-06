@@ -4,7 +4,6 @@ import hashlib
 import io
 import json
 import urllib.request
-from typing import TYPE_CHECKING
 from uuid import UUID
 
 from PIL import Image, ImageOps

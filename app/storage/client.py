@@ -1,5 +1,6 @@
-import boto3
 from uuid import UUID
+
+import boto3
 
 from app.core.config import settings
 

@@ -14,9 +14,9 @@ Property 6: Invalid login credentials always return 401
   Validates: Requirements 2.2
 """
 import pytest
+from httpx import AsyncClient
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
-from httpx import AsyncClient
 
 # ---------------------------------------------------------------------------
 # Test credentials (not real secrets — used only in isolated test DB)
@@ -154,6 +154,7 @@ async def test_property_2_duplicate_rejected(client: AsyncClient, username, pass
 # ---------------------------------------------------------------------------
 
 _whitespace = st.text(alphabet=" \t\n\r", min_size=0, max_size=10)
+
 
 @given(
     bad_username=st.one_of(st.just(""), _whitespace),

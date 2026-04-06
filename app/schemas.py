@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 
 T = TypeVar("T")
 
+
 # ---------------------------------------------------------------------------
 # User schemas
 # ---------------------------------------------------------------------------
@@ -107,6 +108,7 @@ Operation = Annotated[
     ResizeOp | CropOp | RotateOp | FlipOp | MirrorOp | CompressOp | FormatOp | WatermarkOp | FilterOp,
     Field(discriminator="type"),
 ]
+
 
 # ---------------------------------------------------------------------------
 # Image schemas

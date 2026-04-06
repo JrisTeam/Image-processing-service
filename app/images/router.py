@@ -1,10 +1,10 @@
 import io
 import math
+from typing import Annotated
 from uuid import uuid4
 
-from typing import Annotated
-
 import redis as redis_lib
+from PIL import Image as PILImage
 from fastapi import (
     APIRouter,
     Depends,
@@ -14,7 +14,6 @@ from fastapi import (
     UploadFile,
     status,
 )
-from PIL import Image as PILImage
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -64,9 +63,9 @@ FORMAT_CONTENT_TYPES = {
 
 @router.post("/", response_model=ImageRecordOut, status_code=status.HTTP_201_CREATED)
 async def upload_image(
-    file: UploadFile,
-    user: CurrentUser,
-    db: DbSession,
+        file: UploadFile,
+        user: CurrentUser,
+        db: DbSession,
 ):
     data = await file.read()
 
@@ -128,9 +127,9 @@ async def upload_image(
 
 @router.get("/{image_id}", response_model=ImageRecordOut)
 async def get_image(
-    image_id: str,
-    user: CurrentUser,
-    db: DbSession,
+        image_id: str,
+        user: CurrentUser,
+        db: DbSession,
 ):
     record = await db.scalar(
         select(ImageRecord).where(
@@ -155,10 +154,10 @@ async def get_image(
 
 @router.get("/", response_model=PaginatedResponse[ImageRecordOut])
 async def list_images(
-    user: CurrentUser,
-    db: DbSession,
-    page: Annotated[int, Query(ge=1)] = 1,
-    limit: Annotated[int, Query(ge=1)] = 10,
+        user: CurrentUser,
+        db: DbSession,
+        page: Annotated[int, Query(ge=1)] = 1,
+        limit: Annotated[int, Query(ge=1)] = 10,
 ):
     effective_limit = min(limit, 100)
     offset = (page - 1) * effective_limit
@@ -239,7 +238,7 @@ def _fetch_image_bytes(storage_key: str) -> bytes:
 
 
 def _render_pipeline(
-    image_bytes: bytes, operations, src_format: str
+        image_bytes: bytes, operations, src_format: str
 ) -> tuple[bytes, str]:
     """Apply pipeline and encode result; returns (result_bytes, pil_format)."""
     from app.schemas import FormatOp as _FormatOp
@@ -275,11 +274,11 @@ def _render_pipeline(
 
 @router.post("/{image_id}/transform", response_model=TransformationRecordOut)
 async def transform_image(
-    image_id: str,
-    body: TransformRequest,
-    response: Response,
-    user: CurrentUser,
-    db: DbSession,
+        image_id: str,
+        body: TransformRequest,
+        response: Response,
+        user: CurrentUser,
+        db: DbSession,
 ):
     # --- Rate limiting ---
     allowed, retry_after = _check_rate_limit_safe(user.id)

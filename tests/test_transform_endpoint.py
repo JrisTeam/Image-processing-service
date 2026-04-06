@@ -13,8 +13,8 @@ import io
 from unittest.mock import MagicMock, patch
 
 import pytest
-from httpx import AsyncClient
 from PIL import Image as PILImage
+from httpx import AsyncClient
 
 
 # ---------------------------------------------------------------------------
@@ -58,7 +58,7 @@ def _mock_redis(allowed: bool = True, retry_after: int = 0):
     mock.zadd.return_value = None
     mock.expire.return_value = None
     mock.zrange.return_value = [(b"1234567890.0", 1234567890.0)]
-    mock.get.return_value = None   # no cache hit by default
+    mock.get.return_value = None  # no cache hit by default
     mock.set.return_value = None
     return mock
 

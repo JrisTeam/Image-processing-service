@@ -12,11 +12,12 @@ Covers:
 """
 import io
 import math
+from unittest.mock import patch
 
 import pytest
-from httpx import AsyncClient
 from PIL import Image as PILImage
-from unittest.mock import patch
+from httpx import AsyncClient
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -35,7 +36,8 @@ def _make_jpeg(width: int = 32, height: int = 32) -> bytes:
     return buf.getvalue()
 
 
-async def _register_and_token(client: AsyncClient, username: str, password: str = "pass1234") -> str:  # NOSONAR — test helper, not a real credential
+async def _register_and_token(client: AsyncClient, username: str,
+                              password: str = "pass1234") -> str:  # NOSONAR — test helper, not a real credential
     resp = await client.post("/register", json={"username": username, "password": password})
     assert resp.status_code == 200, resp.text
     return resp.json()["access_token"]
