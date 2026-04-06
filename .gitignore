@@ -32,6 +32,7 @@ env/
 
 # IDEs
 .idea/
+.vs/
 
 # Testing
 .pytest_cache/
