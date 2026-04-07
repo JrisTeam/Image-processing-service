@@ -1,0 +1,69 @@
+services:
+  floci:
+    image: hectorvent/floci:latest
+    ports:
+      - "4566:4566"
+    volumes:
+      - ./data/floci:/app/data
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/4566 && echo -e 'GET / HTTP/1.0\r\n\r\n' >&3 && cat <&3 | grep -q 'HTTP' && exit 0 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  floci-init:
+    image: amazon/aws-cli:latest
+    depends_on:
+      floci:
+        condition: service_healthy
+    environment:
+      AWS_ENDPOINT_URL: http://floci:4566
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+    entrypoint: >
+      sh -c "aws s3 mb s3://images --endpoint-url http://floci:4566 || true"
+    restart: "no"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secret}
+      POSTGRES_DB: ${POSTGRES_DB:-imagedb}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-app} -d ${POSTGRES_DB:-imagedb}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+      floci:
+        condition: service_healthy
+      floci-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+
+volumes:
+  redis_data:
+  pg_data:

@@ -6,12 +6,15 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str = "sqlite+aiosqlite:///./dev.db"
     JWT_SECRET: str = "changeme"
-    R2_ACCOUNT_ID: str = ""
-    R2_ACCESS_KEY_ID: str = ""
-    R2_SECRET_ACCESS_KEY: str = ""
-    R2_BUCKET_NAME: str = ""
-    R2_PUBLIC_URL: str = ""
-    R2_REGION: str = "auto"
+
+    # S3-compatible storage (works with floci, Cloudflare R2, MinIO, etc.)
+    S3_ENDPOINT_URL: str = "http://floci:4566"
+    S3_ACCESS_KEY_ID: str = "test"
+    S3_SECRET_ACCESS_KEY: str = "test"
+    S3_BUCKET_NAME: str = "images"
+    S3_PUBLIC_URL: str = "http://localhost:4566/images"
+    S3_REGION: str = "us-east-1"
+
     REDIS_URL: str = "redis://localhost:6379"
 
 

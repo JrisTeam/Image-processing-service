@@ -15,6 +15,7 @@ dependencies = [
     "pydantic[email]",
     "pydantic-settings",
     "python-multipart>=0.0.24",
+    "asyncpg",
 ]
 
 [dependency-groups]

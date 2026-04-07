@@ -225,10 +225,10 @@ def _set_cache(p_hash: str) -> None:
 
 
 def _fetch_image_bytes(storage_key: str) -> bytes:
-    """Fetch raw image bytes from R2; raises HTTPException on failure."""
+    """Fetch raw image bytes from storage; raises HTTPException on failure."""
     try:
         s3 = storage._get_s3()
-        obj = s3.get_object(Bucket=settings.R2_BUCKET_NAME, Key=storage_key)
+        obj = s3.get_object(Bucket=settings.S3_BUCKET_NAME, Key=storage_key)
         return obj["Body"].read()
     except Exception as exc:
         raise HTTPException(
